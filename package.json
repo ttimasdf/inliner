@@ -1,0 +1,26 @@
+{
+  "name": "inliner",
+  "version": "1.0.0",
+  "main": "index.js",
+  "license": "MIT",
+  "repository": "https://github.com/ttimasdf/inliner.git",
+  "author": "ttimasdf",
+  "bin": {
+    "inliner": "./index.js"
+  },
+  "dependencies": {
+    "commander": "^9.4.0",
+    "inline-css": "^4.0.1",
+    "pkg": "^5.8.0"
+  },
+  "resolutions": {
+    "inline-css/extract-css/href-content": "ttimasdf/inline-css#href-content-2.0.1"
+  },
+  "pkg": {
+    "assets": [
+      "node_modules/vm2/**/*"
+    ],
+    "targets": [ "node18-win-x64" ],
+    "outputPath": "dist"
+  }
+}

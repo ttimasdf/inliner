@@ -5,26 +5,56 @@ const fs = require("fs");
 const path = require("path");
 const inlineCss = require('inline-css');
 const cheerio = require('cheerio');
+const { Command } = require('commander');
 
-var fileName = process.argv[process.argv.length - 1];
-if (! fileName.match(/\.(md|html)$/)) {
-    console.error(fileName, "is not a valid markdown file");
-    invalidFile = fileName + ".html";
-    if (fs.existsSync(invalidFile)) {
-        console.log(invalidFile, "is created by mistake, deleting..");
-        fs.unlinkSync(invalidFile);
-    }
-    process.exit(1);
-}
+const program = new Command();
 
-var htmlName = fileName.replace(/\.md$/, ".html");
-console.log("input file:", htmlName);
+program
+    .name('inliner')
+    .description('Inline CSS for VSCode output HTML')
+    .version('1.0.0')
+    .argument('<filename>', 'HTML file name')
+    .option('-u, --url <url>', 'base URL for href resolution')
+    .action((filename, options) => {
+        if (!filename.match(/\.(md|html)$/)) {
+            console.error(filename, "is not a valid markdown file");
+            invalidFile = filename + ".html";
+            if (fs.existsSync(invalidFile)) {
+                console.log(invalidFile, "is created by mistake, deleting..");
+                fs.unlinkSync(invalidFile);
+            }
+            process.exit(1);
+        }
 
-var slug = htmlName.match(/[\\/]([^\\/.]*)\.html$/)[1];
-var url = "https://blog.rabit.pw/2020/" + slug;
-var inlinecss_options = { url , applyWidthAttributes: true, applyTableAttributes: true};
+        var htmlName = filename.replace(/\.md$/, ".html");
+        var slug = htmlName.match(/[\\/]([^\\/.]*)\.html$/)[1];
+        var url = format(options.url, {slug});
+        var inlinecss_options = { url: url , applyWidthAttributes: true, applyTableAttributes: true};
 
-console.log("file:", htmlName, "url:", url);
+        console.log("file:", htmlName, "url:", url);
+
+        checkExistsWithTimeout(htmlName, 10000).then(() => {
+            fs.readFile(htmlName, { encoding: "utf8" }, function (err, html) {
+                if (err) {
+                    console.log(err);
+                    process.exit(1);
+                }
+                html = html.replace(/<(html|head|body)/gi, '<section id="tag-$1" ').replace(/<\/(html|head|body) /gi, "</section");
+                inlineCss(html, inlinecss_options).then(function (output) {
+                    $ = cheerio.load(output);
+                    $('a').each((i, item) => { $(item).attr("data-href", $(item).attr("href")); $(item).attr("href", null); });
+                    $('a', '.footnotes').each((i, item) => { item.tagName = 'span' });
+                    output = $.html();
+                    fs.writeFile(htmlName, output, (err) => {
+                        if (err) console.log(err);
+                        console.log("Successfully Written to File", htmlName);
+                    })
+                }, (err) => {console.log("inline-css error", err);});
+            });
+        });
+    });
+
+program.showHelpAfterError().parse();
 
 function checkExistsWithTimeout(filePath, timeout) {
     return new Promise(function (resolve, reject) {
@@ -67,23 +97,10 @@ function checkExistsWithTimeout(filePath, timeout) {
         });
     });
 }
-checkExistsWithTimeout(htmlName, 10000).then(() => {
-    fs.readFile(htmlName, { encoding: "utf8" }, function (err, html) {
-        if (err) {
-            console.log(err);
-            process.exit(1);
-        }
-        html = html.replace(/<(html|head|body)/gi, '<section id="tag-$1" ').replace(/<\/(html|head|body) /gi, "</section");
-        inlineCss(html, inlinecss_options).then(function (output) {
-            $ = cheerio.load(output);
-            $('a').each((i, item) => { $(item).attr("data-href", $(item).attr("href")); $(item).attr("href", null); });
-            $('a', '.footnotes').each((i, item) => { item.tagName = 'span' });
-            output = $.html();
-            fs.writeFile(htmlName, output, (err) => {
-                if (err) console.log(err);
-                console.log("Successfully Written to File", htmlName);
-            })
-        }, (err) => {console.log("inline-css error", err);});
-    });
-});
+
+function format(str, obj) {
+    return str.replace(/\{\s*([^}\s]+)\s*\}/g, function(m, p1, offset, string) {
+        return obj[p1]
+    })
+}
 

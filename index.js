@@ -26,12 +26,13 @@ program
             process.exit(1);
         }
 
-        var htmlName = filename.replace(/\.md$/, ".html");
-        var slug = htmlName.match(/[\\/]([^\\/.]*)\.html$/)[1];
+        var htmlName = filename.replace(/\.md$/, ".html").replaceAll("\\", "/");
+        console.log("processing:", htmlName)
+        var slug = htmlName.match(/[\/]([^\/.]*)(\.html|\/index.[\w-]{2,5}.html)$/)[1];
         var url = format(options.url, {slug});
         var inlinecss_options = { url: url , applyWidthAttributes: true, applyTableAttributes: true};
 
-        console.log("file:", htmlName, "url:", url);
+        console.log("url:", url);
 
         checkExistsWithTimeout(htmlName, 10000).then(() => {
             fs.readFile(htmlName, { encoding: "utf8" }, function (err, html) {
